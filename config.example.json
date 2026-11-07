@@ -1,0 +1,18 @@
+{
+  "ownerId": 0,
+  "host": "127.0.0.1",
+  "port": 8791,
+  "statePath": "./state/relay.sqlite",
+  "botTokenEnv": "TELEGRAM_BOT_TOKEN",
+  "exclusiveBotConfirmed": false,
+  "notifications": {
+    "silentMessages": false,
+    "questions": true,
+    "completion": false,
+    "mentions": false
+  },
+  "gatewayTokenEnvs": {
+    "local": "DSH_SYNC_LOCAL_TOKEN",
+    "server": "DSH_SYNC_SERVER_TOKEN"
+  }
+}

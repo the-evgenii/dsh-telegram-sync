@@ -1,0 +1,14 @@
+.reference/
+.deployment/
+.npm-cache/
+.package-check*/
+node_modules/
+state/
+*.sqlite*
+*.tgz
+config.json
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store

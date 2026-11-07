@@ -1,0 +1,54 @@
+{
+  "name": "dsh-telegram-sync",
+  "version": "0.1.11",
+  "description": "Single-bot private-topic bridge for multiple DeepSeek Harness gateways",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/the-evgenii/dsh-telegram-sync.git"
+  },
+  "homepage": "https://github.com/the-evgenii/dsh-telegram-sync#readme",
+  "bugs": "https://github.com/the-evgenii/dsh-telegram-sync/issues",
+  "type": "module",
+  "main": "./src/index.mjs",
+  "exports": {
+    ".": "./src/index.mjs"
+  },
+  "bin": {
+    "dsh-telegram-sync": "./bin/relay.mjs"
+  },
+  "files": [
+    "npm-shrinkwrap.json",
+    "src",
+    "bin",
+    "test",
+    "scripts",
+    "cordis.patch.yml",
+    "README.md",
+    "config.example.json"
+  ],
+  "engines": {
+    "node": ">=22.19"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/dsh": "0.2.2-rc.1"
+  },
+  "peerDependenciesMeta": {
+    "@deepseek-ai/dsh": {
+      "optional": true
+    }
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "check": "node scripts/check.mjs",
+    "start": "node bin/relay.mjs"
+  },
+  "license": "UNLICENSED",
+  "dependencies": {
+    "markdown-it": "14.1.0"
+  }
+}
