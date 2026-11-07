@@ -53,12 +53,15 @@ export class Store {
       .get(lane, sessionId, JSON.stringify(exceptIds)));
   }
   nextTelegram(now) {
+    // Finished message failures stay failed, but cannot suppress every future approval.
+    // Pending/retry/unknown sends still preserve ordering; lifecycle failures remain hard barriers.
     const row = this.db.prepare(`SELECT candidate.* FROM jobs AS candidate
       WHERE candidate.lane='telegram' AND candidate.status='pending' AND candidate.not_before<=?
       AND NOT EXISTS (SELECT 1 FROM jobs AS blocker WHERE blocker.lane='telegram'
         AND blocker.seq<candidate.seq AND blocker.status!='done'
         AND (json_extract(blocker.payload,'$.op')='lifecycle'
-          OR (json_extract(candidate.payload,'$.op')='interaction' AND json_extract(blocker.payload,'$.op')='message'))
+          OR (json_extract(candidate.payload,'$.op')='interaction' AND json_extract(blocker.payload,'$.op')='message'
+            AND blocker.status IN ('pending','sending','uncertain')))
         AND json_extract(blocker.payload,'$.key')=json_extract(candidate.payload,'$.key'))
       ORDER BY candidate.seq LIMIT 1`).get(now);
     return row ? { ...row, payload: JSON.parse(row.payload) } : null;

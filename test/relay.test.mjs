@@ -204,6 +204,30 @@ test('preceding commentary is sent before its approval, including a rate-limited
   assert.match(sent[2], /Подтверждение инструмента/);
 });
 
+test('old definitive message failure cannot permanently block a new complete approval card', async t => {
+  const { relay, store, calls, replies } = await fixture(t);
+  exchange(relay, 1); await relay.deliver();
+  replies.set('sendMessage', (_req, res) => res.end(JSON.stringify({ ok: false, error_code: 403 })));
+  exchange(relay, 2, [session()], {
+    events: [{ id: 'a:1', sessionId: 'a', seq: 1, type: 'assistant/message', content: [{ type: 'text', text: 'Old failed message' }] }],
+  });
+  await relay.deliver();
+  const failed = store.db.prepare("SELECT id FROM jobs WHERE status='failed' AND json_extract(payload,'$.event.seq')=1").get();
+  assert.ok(failed);
+  replies.delete('sendMessage');
+  exchange(relay, 3, [session()], {
+    events: [{ id: 'a:2', sessionId: 'a', seq: 2, type: 'assistant/message', content: [{ type: 'text', text: 'Current context' }] }],
+    interactions: [{ token: 'abcdefghijklmnopqrst', sessionId: 'a', kind: 'approval', toolName: 'plugin_manager', reason: 'Allow one exact operation?', details: '{"action":"list_bundles"}' }],
+  });
+  await relay.deliver();
+  const sent = calls.filter(c => c.method === 'sendMessage').map(c => c.payload.text);
+  assert.equal(sent.filter(text => text === 'Old failed message').length, 1);
+  assert.equal(sent[1], 'Current context');
+  assert.match(sent[2], /Allow one exact operation/);
+  assert.match(sent[2], /list_bundles/);
+  assert.equal(store.job(failed.id).status, 'failed');
+});
+
 test('outgoing user/assistant messages are deduplicated; internal context and own echo are suppressed', async t => {
   const { relay, calls } = await fixture(t);
   const events = [
