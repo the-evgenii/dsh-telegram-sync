@@ -1,6 +1,6 @@
 {
   "name": "dsh-telegram-sync",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Single-bot private-topic bridge for multiple DeepSeek Harness gateways",
   "repository": {
     "type": "git",
@@ -12,7 +12,8 @@
   "main": "./src/index.mjs",
   "exports": {
     ".": "./src/index.mjs",
-    "./client": "./src/client.js"
+    "./client": "./src/client.js",
+    "./locale/*": "./locale/*"
   },
   "bin": {
     "dsh-telegram-sync": "./bin/relay.mjs"
@@ -20,6 +21,7 @@
   "files": [
     "npm-shrinkwrap.json",
     "src",
+    "locale",
     "bin",
     "test",
     "scripts",
