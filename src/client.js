@@ -2,6 +2,7 @@ window.__ModuleLoader__.load({
   id: 'dsh-telegram-sync',
   factory(require) {
     const React = require('react');
+    const { Button, Switch, SettingsValueField, SettingsSecretField, CommandText } = require('@deepseek-ai/dsh-client-ui-primitives');
     const h = React.createElement;
     const secrets = new Set(['gatewayToken', 'relayAdminToken', 'botToken', 'macGatewayToken', 'vpsGatewayToken']);
     const defaults = { gatewayEnabled: true, manageRelay: false, ownerId: 0,
@@ -61,30 +62,34 @@ window.__ModuleLoader__.load({
           return persisted[key] || status?.[key] || defaults[key] || '';
         };
         const update = (key, next) => setDirty(previous => ({ ...previous, [key]: next }));
-        const inputStyle = { width: '100%', boxSizing: 'border-box', padding: '9px 11px', borderRadius: 8,
-          border: '1px solid var(--dsw-alias-border-primary, #666)', color: 'inherit',
-          background: 'var(--dsw-specific-input-major, #26292e)', font: 'inherit' };
-        const buttonStyle = { padding: '9px 14px', borderRadius: 8, cursor: 'pointer', font: 'inherit' };
-        function field(key, label, type = 'text', help) {
-          const secret = secrets.has(key);
-          return h('label', { key, style: { display: 'grid', gap: 6, marginBottom: 14 } },
-            h('span', null, label),
-            h('input', { name: key, type: secret ? (showSecrets ? 'text' : 'password') : type,
-              value: value(key), autoComplete: secret ? 'new-password' : 'off', maxLength: 2048,
-              min: type === 'number' ? 1 : undefined, step: type === 'number' ? 1 : undefined,
-              disabled: busy || !snapshot.writable, style: inputStyle,
-              placeholder: secret ? 'Пусто — сохранить существующий ключ' : '',
-              onChange: event => update(key, type === 'number' ? Number(event.target.value) : event.target.value) }),
-            help ? h('small', { style: { opacity: 0.75 } }, help) : null);
+        const noteStyle = { color: 'var(--dsw-alias-label-secondary)', fontSize: 12, lineHeight: '18px', margin: '8px 0' };
+        const rowStyle = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24, padding: '12px 0',
+          borderBottom: '0.5px solid var(--dsw-alias-border-l2)' };
+        function field(key, label, type = 'text', help = '') {
+          const onEdit = text => update(key, type === 'number' ? Number(text) : text);
+          const shared = { key, id: `telegram-sync-${key}`, label, hint: help,
+            text: String(value(key)), disabled: busy || !snapshot.writable, onEdit };
+          if (secrets.has(key) && !showSecrets) {
+            const configured = key === 'gatewayToken' ? status?.gatewayTokenConfigured
+              : key === 'relayAdminToken' ? status?.adminTokenConfigured
+              : key === 'botToken' ? status?.relay?.botTokenConfigured
+              : status?.relay?.gateways?.some(gateway => gateway.id === value(key === 'macGatewayToken' ? 'macGatewayId' : 'vpsGatewayId'));
+            return h(SettingsSecretField, { ...shared, configured: Boolean(configured),
+              stateLabel: configured ? 'Ключ сохранён. Пустое поле сохраняет его.' : 'Пустое поле сохраняет существующий ключ.' });
+          }
+          return h(SettingsValueField, { ...shared, numeric: type === 'number', overridden: false, invalid: false,
+            overriddenLabel: 'Изменено', resetLabel: 'Сбросить', invalidLabel: 'Проверьте значение', onReset: () => {},
+            placeholder: secrets.has(key) ? 'Пусто — сохранить существующий ключ' : '' });
         }
         function toggle(key, label) {
-          return h('label', { key, style: { display: 'flex', gap: 9, alignItems: 'center', marginBottom: 12 } },
-            h('input', { name: key, type: 'checkbox', checked: Boolean(value(key)), disabled: busy || !snapshot.writable,
-              onChange: event => update(key, event.target.checked) }), label);
+          return h('div', { key, 'data-setting': key, style: rowStyle },
+            h('span', null, label),
+            h(Switch, { checked: Boolean(value(key)), disabled: busy || !snapshot.writable, label,
+              onChange: next => update(key, next) }));
         }
         function section(title, children) {
-          return h('fieldset', { style: { border: '1px solid var(--dsw-alias-border-primary, #666)', borderRadius: 12, padding: 18, margin: '0 0 18px' } },
-            h('legend', { style: { padding: '0 8px', fontWeight: 600 } }, title), children);
+          return h('section', { style: { marginTop: 24 } },
+            h('h3', { style: { margin: '0 0 4px', fontSize: 14, lineHeight: '20px', fontWeight: 500 } }, title), children);
         }
         function generate(machine) {
           const bytes = crypto.getRandomValues(new Uint8Array(32));
@@ -111,13 +116,13 @@ window.__ModuleLoader__.load({
           } catch (error) { setMessage(error.message); }
           finally { setBusy(false); }
         }
-        return h('div', { style: { maxWidth: 780, padding: '8px 4px', color: 'inherit' } },
-          h('h2', null, 'Telegram Sync'),
-          h('p', null, 'Один Telegram-бот для Mac и VPS. Все изменения сохраняются в профиле Harness; серверные настройки применяются к relay по отдельному ключу администратора.'),
+        return h('div', { style: { color: 'var(--dsw-alias-label-primary)', fontSize: 13, lineHeight: '20px' } },
+          h('h2', { style: { margin: '0 0 8px', fontSize: 16, lineHeight: '24px', fontWeight: 600 } }, 'Telegram Sync'),
+          h('p', { style: noteStyle }, 'Один Telegram-бот для Mac и VPS. Все изменения сохраняются в профиле Harness; серверные настройки применяются к relay по отдельному ключу администратора.'),
           status ? h('p', { role: 'status' }, status.gatewayRunning ? 'Шлюз этой машины запущен.' : 'Шлюз этой машины не запущен.',
             status.error ? ` ${errors[status.error] ?? 'Проверьте настройки.'}` : '') : null,
           !snapshot.writable ? h('p', { role: 'alert' }, 'Настройки доступны для изменения только владельцу Harness.') : null,
-          section('1. Подключение этой машины', [
+          section('Подключение этой машины', [
             toggle('gatewayEnabled', 'Подключать эту машину к Telegram'),
             field('relayUrl', 'Адрес relay', 'url', 'HTTPS для удалённого сервера или http://127.0.0.1:порт через SSH-туннель.'),
             field('gatewayId', 'ID этой машины', 'text', 'Обычно local для Mac и server для VPS. ID должен совпадать с каналом на relay.'),
@@ -125,32 +130,32 @@ window.__ModuleLoader__.load({
             field('newSessionCwd', 'Рабочий каталог новых диалогов', 'text', 'Абсолютный путь на этой машине. Проекты между Mac и VPS не копируются.'),
             field('statePath', 'Путь базы шлюза', 'text', 'Пусто — стандартный каталог Harness. Не меняйте базу действующего шлюза без переноса состояния.'),
           ]),
-          section('2. Telegram и центральный сервер', [
+          section('Telegram и центральный сервер', [
             toggle('manageRelay', 'Применять настройки Telegram к серверу с этой страницы'),
             field('relayAdminToken', 'Ключ администратора relay', 'text', 'Получается при --init на сервере. Не совпадает с токеном бота или ключом Mac/VPS.'),
             field('ownerId', 'Telegram ID владельца (ownerId)', 'number', 'Числовой ID пользователя, не @username и не ID канала. Только этот пользователь управляет ботом.'),
             field('botToken', 'Токен Telegram-бота', 'text', 'Токен от BotFather. В BotFather должен быть включён режим тем в личном чате.'),
             toggle('exclusiveBotConfirmed', 'Другие обработчики этого бота остановлены; бот используется только этим relay'),
-            h('p', { key: 'identity-warning' }, 'Существующие темы нельзя передать другому владельцу или другому боту. Для такой смены нужен отдельный relay без прежней истории.'),
+            h('p', { key: 'identity-warning', style: noteStyle }, 'Существующие темы нельзя передать другому владельцу или другому боту. Для такой смены нужен отдельный relay без прежней истории.'),
           ]),
-          section('3. Каналы Mac и VPS на сервере', ['mac', 'vps'].map(machine => h('div', { key: machine, style: { marginBottom: 18 } },
+          section('Каналы Mac и VPS на сервере', ['mac', 'vps'].map(machine => h('div', { key: machine, style: { marginBottom: 18 } },
             field(`${machine}GatewayId`, machine === 'mac' ? 'ID канала Mac' : 'ID канала VPS'),
             field(`${machine}GatewayToken`, machine === 'mac' ? 'Ключ канала Mac' : 'Ключ канала VPS'),
-            h('button', { type: 'button', disabled: busy || !snapshot.writable, style: buttonStyle, onClick: () => generate(machine) }, 'Сгенерировать ключ'),
-            h('small', { style: { display: 'block', marginTop: 8 } }, 'Этот же ID и ключ укажите в разделе подключения на соответствующей машине. Существующие каналы не удаляются.'),
+            h(Button, { variant: 'outline', size: 'sm', disabled: busy || !snapshot.writable, onClick: () => generate(machine) }, 'Сгенерировать ключ'),
+            h('p', { style: noteStyle }, 'Этот же ID и ключ укажите в разделе подключения на соответствующей машине. Существующие каналы не удаляются.'),
           ))),
-          section('4. Уведомления', [toggle('silentMessages', 'Обычная переписка без звука'), toggle('questions', 'Звук вопросов и подтверждений'),
+          section('Уведомления', [toggle('silentMessages', 'Обычная переписка без звука'), toggle('questions', 'Звук вопросов и подтверждений'),
             toggle('completion', 'Звук итогового ответа'), toggle('mentions', 'Звук упоминаний владельца')]),
-          h('label', { style: { display: 'flex', gap: 8, marginBottom: 14 } }, h('input', { type: 'checkbox', checked: showSecrets,
-            onChange: event => setShowSecrets(event.target.checked) }), 'Показывать вводимые секреты'),
-          h('div', { style: { display: 'flex', gap: 10, flexWrap: 'wrap' } },
-            h('button', { type: 'button', style: buttonStyle, disabled: busy || !snapshot.writable, onClick: () => perform(true) }, busy ? 'Подождите…' : 'Сохранить и применить'),
-            h('button', { type: 'button', style: buttonStyle, disabled: busy || !snapshot.writable, onClick: () => perform(false) }, 'Проверить сохранённое подключение')),
+          h('div', { style: rowStyle }, h('span', null, 'Показывать вводимые секреты'),
+            h(Switch, { label: 'Показывать вводимые секреты', checked: showSecrets, onChange: setShowSecrets })),
+          h('div', { style: { display: 'flex', gap: 8, flexWrap: 'wrap', paddingTop: 16 } },
+            h(Button, { variant: 'primary', size: 'sm', disabled: busy || !snapshot.writable, onClick: () => perform(true) }, busy ? 'Подождите…' : 'Сохранить и применить'),
+            h(Button, { variant: 'outline', size: 'sm', disabled: busy || !snapshot.writable, onClick: () => perform(false) }, 'Проверить сохранённое подключение')),
           message ? h('p', { role: 'status', style: { whiteSpace: 'pre-wrap' } }, message) : null,
-          h('p', { style: { fontSize: 13, opacity: 0.75 } }, 'Изменение подключения переподключает шлюз и отменяет незавершённые подтверждения, не выдавая разрешений. Пустые секретные поля сохраняют прежние ключи.'),
+          h('p', { style: noteStyle }, 'Изменение подключения переподключает шлюз и отменяет незавершённые подтверждения, не выдавая разрешений. Пустые секретные поля сохраняют прежние ключи.'),
           h('details', null, h('summary', null, 'Как подготовить сервер'),
             h('p', null, 'Установите Node.js 22.19+ и пакет. Один раз создайте защищённую конфигурацию:'),
-            h('pre', null, 'node bin/relay.mjs --init /absolute/private/relay.config.json'),
+            h(CommandText, { label: 'Команда подготовки relay', text: 'node bin/relay.mjs --init /absolute/private/relay.config.json' }),
             h('p', null, 'Команда выдаст ключ администратора. Запустите relay с созданным файлом и настройте HTTPS или SSH-туннель. Затем заполните эту страницу и включите применение к серверу. В установленном relay ключ администратора можно передать через DSH_SYNC_ADMIN_TOKEN без изменения ownerId и токенов бота.')),
         );
       }

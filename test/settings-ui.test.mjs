@@ -10,7 +10,11 @@ import { PluginSettingsController, installSettingsRemote } from '../src/plugin-s
 function loadClient(react) {
   let module;
   runInNewContext(readFileSync(new URL('../src/client.js', import.meta.url), 'utf8'), {
-    window: { __ModuleLoader__: { load: spec => { module = spec.factory(name => { assert.equal(name, 'react'); return react; }); } } },
+    window: { __ModuleLoader__: { load: spec => { module = spec.factory(name => {
+      if (name === 'react') return react;
+      assert.equal(name, '@deepseek-ai/dsh-client-ui-primitives');
+      return Object.fromEntries(['Button', 'Switch', 'SettingsValueField', 'SettingsSecretField', 'CommandText'].map(key => [key, `Harness${key}`]));
+    }); } } },
   });
   return module;
 }
@@ -43,14 +47,18 @@ test('settings page renders owner, bot, server and both machine credentials with
     configForms: { get: id => { assert.equal(id, 'telegram-conversation-sync'); return form; } } });
   const child = component();
   child.type(child.props);
-  const inputs = elements.filter(e => e.type === 'input');
+  const fields = elements.filter(e => ['HarnessSettingsValueField', 'HarnessSettingsSecretField'].includes(e.type));
   for (const name of ['ownerId', 'botToken', 'relayUrl', 'relayAdminToken', 'gatewayToken', 'macGatewayToken', 'vpsGatewayToken', 'newSessionCwd']) {
-    assert.ok(inputs.some(e => e.props.name === name), name);
+    assert.ok(fields.some(e => e.props.id === `telegram-sync-${name}`), name);
   }
-  assert.equal(inputs.find(e => e.props.name === 'gatewayId').props.value, '');
-  assert.equal(inputs.find(e => e.props.name === 'gatewayEnabled').props.checked, false);
-  assert.equal(inputs.find(e => e.props.name === 'silentMessages').props.checked, false);
-  assert.equal(inputs.find(e => e.props.name === 'botToken').props.type, 'password');
+  assert.equal(fields.find(e => e.props.id === 'telegram-sync-gatewayId').props.text, '');
+  const toggle = name => elements.find(e => e.props['data-setting'] === name).children[1];
+  assert.equal(toggle('gatewayEnabled').type, 'HarnessSwitch');
+  assert.equal(toggle('gatewayEnabled').props.checked, false);
+  assert.equal(toggle('silentMessages').props.checked, false);
+  assert.equal(fields.find(e => e.props.id === 'telegram-sync-botToken').type, 'HarnessSettingsSecretField');
+  assert.equal(elements.some(e => ['input', 'button', 'fieldset', 'legend'].includes(e.type)), false);
+  assert.ok(elements.some(e => e.type === 'HarnessButton' && e.props.variant === 'primary'));
 });
 
 test('Config declares one volatile form with redacted secret roles', () => {
