@@ -6,11 +6,24 @@ import { RelayClient } from './server.mjs';
 import { Gateway, HarnessAdapter } from './gateway.mjs';
 import { GatewayInteractions } from './interaction-gateway.mjs';
 import { installArtifacts, ARTIFACT_TOOL } from './artifacts.mjs';
+import { PluginSettingsController, installSettingsRemote } from './plugin-settings.mjs';
+export { Config } from './config.mjs';
 
 export const name = 'telegram-conversation-sync';
-export const inject = ['connection', 'typertGateway', 'sessionQuery', 'workspaceRegistry', 'agents', 'sessions', 'attachments', 'fileUploads', 'tools', 'fs', 'workingDirectory', 'systemPrompt', 'userQuestions', 'sessionController'];
+const gatewayInject = ['connection', 'typertGateway', 'sessionQuery', 'workspaceRegistry', 'agents', 'sessions', 'attachments', 'fileUploads', 'tools', 'fs', 'workingDirectory', 'systemPrompt', 'userQuestions', 'sessionController'];
+export const inject = [...gatewayInject, 'typert', 'settings'];
 
 export async function apply(ctx, config = {}) {
+  const controller = new PluginSettingsController({ ctx, config,
+    startGateway: connection => ctx.plugin({ name: 'telegram-sync-transport', inject: gatewayInject, apply: gatewayApply }, connection),
+  });
+  installSettingsRemote(ctx, controller);
+  ctx.on('loader/volatile-update', () => { void controller.apply(); });
+  ctx.effect(() => () => controller.stop());
+  await controller.apply();
+}
+
+async function gatewayApply(ctx, config = {}) {
   // No implicit reading of another plugin's bot credentials; token stays on the central relay.
   const token = config.gatewayToken ?? process.env.DSH_TELEGRAM_GATEWAY_TOKEN;
   if (!config.relayUrl || !config.gatewayId || !token) throw new Error('Configure relayUrl, gatewayId and gatewayToken');
@@ -37,7 +50,7 @@ export async function apply(ctx, config = {}) {
       try { await delay(2000, undefined, { signal: controller.signal }); } catch { break; }
     }
   })();
-  ctx.on('dispose', async () => {
+  ctx.effect(() => async () => {
     controller.abort();
     interactions.dispose();
     await loop;

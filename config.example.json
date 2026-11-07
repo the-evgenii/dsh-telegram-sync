@@ -4,6 +4,7 @@
   "port": 8791,
   "statePath": "./state/relay.sqlite",
   "botTokenEnv": "TELEGRAM_BOT_TOKEN",
+  "adminTokenEnv": "DSH_SYNC_ADMIN_TOKEN",
   "exclusiveBotConfirmed": false,
   "notifications": {
     "silentMessages": false,

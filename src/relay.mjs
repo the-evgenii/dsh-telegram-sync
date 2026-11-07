@@ -10,7 +10,7 @@ const digest = value => createHash('sha256').update(value).digest('hex');
 const positiveId = n => Number.isSafeInteger(n) && n > 0;
 
 export class Relay {
-  constructor({ store, telegram, ownerId, notifications = {}, gatewayIds = [], now = Date.now, logger = console }) {
+  constructor({ store, telegram, ownerId, notifications = {}, gatewayIds = [], now = Date.now, logger = console, recover = true }) {
     if (!positiveId(ownerId)) throw new Error('A numeric Telegram ownerId is required');
     Object.assign(this, { store, telegram, ownerId, now, logger });
     this.notifications = { silentMessages: notifications.silentMessages === true,
@@ -20,7 +20,7 @@ export class Relay {
     this.running = new Map();
     this.interactions = new InteractionRelay(this);
     this.creation = new CreationMenu(this, gatewayIds);
-    this.store.recover('telegram');
+    if (recover) this.store.recover('telegram');
   }
   session(key) { return this.store.get(`session:${key}`); }
   address(row) { return { chat_id: this.ownerId, message_thread_id: row.topic }; }
@@ -29,6 +29,8 @@ export class Relay {
       this.telegram.call('getMe'), this.telegram.call('getWebhookInfo'),
     ]);
     if (!bot.has_topics_enabled) throw new Error('Enable private-chat topic mode in BotFather first');
+    this.botId = bot.id;
+    this.botUsername = bot.username ?? null;
     if (webhook.url) throw new Error('Bot already uses a webhook; do not start a second update consumer');
     if (this.notifications.mentions) {
       try {

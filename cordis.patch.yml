@@ -1,4 +1,4 @@
 - insert:
     - id: telegram-conversation-sync
       name: dsh-telegram-sync
-      disabled: true
+      disabled: false

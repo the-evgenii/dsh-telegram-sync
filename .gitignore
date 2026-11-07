@@ -1,4 +1,5 @@
 .reference/
+.scratch-*/
 .deployment/
 .npm-cache/
 .package-check*/
